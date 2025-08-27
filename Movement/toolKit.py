@@ -3,7 +3,7 @@
 # Wheels: 87 mm diameter
 # Track width: 143 mm (center-to-center distance between wheels)
 
-from hub import port
+from hub import port, motion_sensor
 import runloop
 import motor_pair
 import motor
@@ -17,7 +17,7 @@ PAIR = motor_pair.PAIR_1
 LEFT_DRIVE= port.A
 RIGHT_DRIVE = port.E
 
-WHEEL_D_MM= 87.0    # your wheels
+WHEEL_D_MM= 88.0    # your wheels
 TRACK_W_MM= 143.0    # your track width
 ACCEL    = 1000    # deg/s^2
 DECEL    = 1000
@@ -38,15 +38,30 @@ def _robot_deg_to_wheel_deg(robot_deg: float) -> int:
     wheel_rot = travel_mm / (pi * WHEEL_D_MM)
     return int(round(wheel_rot * 360.0))
 
+def _yaw_deg() -> float:
+    y_decideg, _, _ = motion_sensor.tilt_angles()
+    return y_decideg / 10.0
+
+def _reset_yaw(deg: int = 0) -> None:
+    motion_sensor.reset_yaw(int(deg * 10))
 # -----------------------------
 # Init
 # -----------------------------
+
+async def reset_yaw():
+    motion_sensor.reset_yaw(0)
+    motor.reset_relative_position(LEFT_DRIVE, 0)
+    motor.reset_relative_position(RIGHT_DRIVE, 0)
+    await runloop.sleep_ms(500)
+
 async def init_robot(default_speed: int = 500):
     """
     Pair A/E as the drive motors and set a default speed for the pair.
     Call this once at the start of your program.
     """
     motor_pair.pair(PAIR, LEFT_DRIVE, RIGHT_DRIVE)
+    await reset_yaw()
+
 
 # -----------------------------
 # Core movement
@@ -72,6 +87,76 @@ async def drive_cm(cm: float,
         deceleration=deceleration
     )
 
+# -----------------------------
+# Drive with gyro correction
+# -----------------------------
+
+async def drive_cm_gyro(cm: float,
+                        velocity: int = 420,
+                        step_cm: float = 8.0,    # bigger chunks = fewer starts/stops
+                        kp: float = 0.8,        # gentle gain for smoothness
+                        steer_limit: int = 20,    # cap steering authority
+                        deadband_deg: float = 1.0,
+                        steer_rate_limit: int = 6,# max change in steer per chunk
+                        stop_mode_end: int = motor.BRAKE):
+    """
+    Smooth encoder-stepped straight drive with yaw correction.
+    Keeps motion continuous between chunks (CONTINUE) and eases steering.
+    +cm forward, -cm backward.
+    """
+    total_deg = _cm_to_deg(cm)
+    remaining = abs(total_deg)
+    dir_sign= 1 if cm >= 0 else -1
+    step_deg= max(60, _cm_to_deg(step_cm))# ensure meaningful chunk
+
+    # gyro prep
+    _reset_yaw(0)
+
+    # steering state for rate limiting + low-pass yaw
+    prev_steer = 0
+    yaw_filt = _yaw_deg()
+
+    while remaining > 0:
+        chunk = step_deg if remaining > step_deg else remaining
+
+        # --- Read & filter yaw (low-pass to avoid noise)
+        yaw_now = _yaw_deg()
+        yaw_filt = 0.8 * yaw_filt + 0.2 * yaw_now
+
+        # --- Compute steering for this chunk
+        err = -yaw_filt# want 0°
+        if abs(err) < deadband_deg:
+            raw_steer = 0
+        else:
+            raw_steer = int(kp * err)
+            raw_steer = max(-steer_limit, min(steer_limit, raw_steer))
+
+        # --- Ease steering change (rate limit)
+        delta = raw_steer - prev_steer
+        if delta > steer_rate_limit:
+            steer = prev_steer + steer_rate_limit
+        elif delta < -steer_rate_limit:
+            steer = prev_steer - steer_rate_limit
+        else:
+            steer = raw_steer
+        prev_steer = steer
+
+        # --- Execute chunk without stopping (CONTINUE keeps motion smooth)
+        await motor_pair.move_for_degrees(
+            PAIR,
+            chunk,
+            steer,
+            velocity=dir_sign * velocity,
+            stop=motor.CONTINUE,    # <— keep rolling into next chunk
+            acceleration=ACCEL,
+            deceleration=DECEL // 2# softer decel to reduce jerk
+        )
+        remaining -= chunk
+        print(remaining)
+
+    # Final, tidy stop at the end of the whole move
+    motor_pair.stop(PAIR, stop=stop_mode_end)
+
 
 async def turn_deg(angle_deg: float,
                 velocity: int = 400,
@@ -93,6 +178,10 @@ async def turn_deg(angle_deg: float,
         acceleration=acceleration,
         deceleration=deceleration
     )
+    await reset_yaw()
+
+
+
 
 async def arc_turn(radius_cm: float,
                 angle_deg: float,
@@ -148,17 +237,18 @@ async def main():
     await init_robot(default_speed=500)
 
     # Example: 60 cm forward, 90° turn, 60 cm forward, then back 60 cm
-    await drive_cm(60, velocity=200)
-    await turn_deg(90, velocity=400)
 
-    await drive_cm(60, velocity=200)
-    await turn_deg(90, velocity=400)
+    await drive_cm_gyro(60, velocity=200)
+    await turn_deg(90, velocity=200)
 
-    await drive_cm(60, velocity=200)
-    await turn_deg(90, velocity=400)
+    await drive_cm_gyro(60, velocity=200)
+    await turn_deg(90, velocity=200)
 
-    await drive_cm(60, velocity=200)
-    await turn_deg(90, velocity=400)
+    await drive_cm_gyro(60, velocity=200)
+    await turn_deg(90, velocity=200)
+
+    await drive_cm_gyro(60, velocity=200)
+    await turn_deg(90, velocity=200)
 
 
 
