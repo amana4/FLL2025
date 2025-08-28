@@ -14,11 +14,22 @@ from math import pi
 # Robot configuration
 # -----------------------------
 PAIR = motor_pair.PAIR_1
+
+# Main Drive motors
 LEFT_DRIVE= port.A
 RIGHT_DRIVE = port.E
 
-WHEEL_D_MM= 88.0    # your wheels
-TRACK_W_MM= 143.0    # your track width
+# Downward color sensors
+left_color = port.F
+right_color = port.B
+
+# Attachment/Tool motors
+attachment1 = port.C
+attachment2 = port.D
+
+# Wheel and robot dimensions
+WHEEL_D_MM= 88.0    # wheel diameter
+TRACK_W_MM= 143.0    # track width
 ACCEL    = 1000    # deg/s^2
 DECEL    = 1000
 
@@ -231,26 +242,17 @@ async def micro_turn_deg(angle: float = 3.0, velocity: int = 200):
     await turn_deg(angle, velocity=velocity)
 
 # -----------------------------
-# Demo (remove or edit as needed)
+# Main program
 # -----------------------------
 async def main():
     await init_robot(default_speed=500)
 
-    # Example: 60 cm forward, 90° turn, 60 cm forward, then back 60 cm
+    # Example: 60 cm forward, 90° turn 4 times - create a square
+    for _ in range(4):
+        # Move forward 
+        await drive_cm(60, velocity=200)
+        # Turn
+        await turn_deg(90, velocity=200)
 
-    await drive_cm_gyro(60, velocity=200)
-    await turn_deg(90, velocity=200)
-
-    await drive_cm_gyro(60, velocity=200)
-    await turn_deg(90, velocity=200)
-
-    await drive_cm_gyro(60, velocity=200)
-    await turn_deg(90, velocity=200)
-
-    await drive_cm_gyro(60, velocity=200)
-    await turn_deg(90, velocity=200)
-
-
-
-
+# Run the main loop
 runloop.run(main())
