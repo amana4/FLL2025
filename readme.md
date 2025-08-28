@@ -14,11 +14,10 @@ Library/
 
 ## Getting Started
 
-1. Clone the repository:
+ Clone the repository:
    ```zsh
    git clone https://github.com/amana4/FLL2025.git
    ```
-2. Navigate to the `Movement` directory to explore the modules.
 
 ## Usage
 
