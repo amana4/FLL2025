@@ -1,12 +1,16 @@
+
 # FLL2025 Movement Module
 
 This repository contains Python modules for movement-related calculations and utilities, designed for use in robotics and automation projects.
 
-## Folder Structure
+## Directory Structure
 
-- `Movement/`
-  - `distance.py`: Functions and classes for calculating distances and related operations.
-  - `toolKit.py`: Utility functions and tools to assist with movement calculations.
+```
+Library/
+  toolKit.py
+```
+
+- `toolKit.py`: Provides utility functions and tools to assist with movement calculations.
 
 ## Getting Started
 
@@ -20,8 +24,7 @@ This repository contains Python modules for movement-related calculations and ut
 
 Import the modules in your Python scripts as needed:
 ```python
-from Movement.distance import ...
-from Movement.toolKit import ...
+from Library.toolKit import ...
 ```
 
 ## Contributing
@@ -30,4 +33,4 @@ Feel free to open issues or submit pull requests for improvements or new feature
 
 ## License
 
-This project is licensed under the MIT License.
+All rights reserved. Any use, distribution, or modification of this code requires explicit permission from the owner 
