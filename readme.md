@@ -6,7 +6,6 @@ This repository contains Python modules for movement-related calculations and ut
 
 - `Movement/`
   - `distance.py`: Functions and classes for calculating distances and related operations.
-  - `toolKit.py`: Utility functions and tools to assist with movement calculations.
 
 ## Getting Started
 
